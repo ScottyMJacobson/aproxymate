@@ -26,6 +26,7 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         all_headers = self.headers
         path_requested = self.path
+        print "Request for {0}".format(path_requested)
         # run this GET request on the path requested, with same headers
         request_out = urllib2.Request(path_requested, headers = all_headers)
         try:
@@ -33,16 +34,15 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
         except urllib2.HTTPError as e:
             self.send_error(e.code, e.message)
             return
+        except urllib2.URLError as e:
+            self.send_error(404)
+            return
 
         response_code_back = response_back.getcode()
         headers_back = response_back.info()
         data_back = response_back.read()
 
         lines_in_response = []
-
-        print "headers_back =", headers_back
-
-        print "response_code_back =", response_code_back
 
         #print "data_back =", data_back
 
