@@ -17,19 +17,70 @@ Advanced features:
 
 import argparse
 
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+
+
+import urllib2
+
+class AproxymateRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        all_headers = self.headers
+        path_requested = self.path
+        # run this GET request on the path requested, with same headers
+        request_out = urllib2.Request(path_requested, headers = all_headers)
+        try:
+            response_back = urllib2.urlopen(request_out)
+        except urllib2.HTTPError as e:
+            self.send_error(e.code, e.message)
+            return
+
+        response_code_back = response_back.getcode()
+        headers_back = response_back.info()
+        data_back = response_back.read()
+
+        lines_in_response = []
+
+        print "headers_back =", headers_back
+
+        print "response_code_back =", response_code_back
+
+        #print "data_back =", data_back
+
+        lines_in_response.append("HTTP 1.1 {0} {1}".format(response_code_back, BaseHTTPRequestHandler.responses[response_code_back][0]))
+
+        for header in response_back.headers:
+            lines_in_response.append("{0}: {1}".format(header, response_back.headers[header]))
+
+        #symbolize end of headers
+        lines_in_response.append('')
+
+        lines_in_response.append(data_back)
+        full_message = '\n\r'.join(lines_in_response)
+        self.wfile.write(full_message)
+
+
+
+
 class Aproxymate():
     def __init__(self, portno):
         self.port = portno
+
+    def listen(self):
+        try:
+            self.server = HTTPServer(("", self.port), AproxymateRequestHandler)
+            self.server.serve_forever() 
+        except KeyboardInterrupt:
+            print " KeyboardInterrupt received. Shutting down server."
 
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("port", type=str ,help="Port number to bind proxy to")
+    parser.add_argument("port", type=int ,help="Port number to bind proxy to")
     args = parser.parse_args()
 
     proxy = Aproxymate(args.port)
-
+    proxy.listen()
 
 if __name__ == '__main__':
     main()
