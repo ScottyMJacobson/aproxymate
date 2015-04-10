@@ -54,21 +54,17 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
         headers_back = response_back.info()
         data_back = response_back.read()
 
-        lines_in_response = []
-
-        #print "data_back =", data_back
-
-        lines_in_response.append("HTTP 1.1 {0} {1}".format(response_code_back, BaseHTTPRequestHandler.responses[response_code_back][0]))
+        lines_in_header = []
+        lines_in_header.append("HTTP 1.1 {0} {1}".format(response_code_back, BaseHTTPRequestHandler.responses[response_code_back][0]))
 
         for header in response_back.headers:
-            lines_in_response.append("{0}: {1}".format(header, response_back.headers[header]))
+            lines_in_header.append("{0}: {1}".format(header, response_back.headers[header]))
 
         #symbolize end of headers
-        lines_in_response.append('')
-        lines_in_response.append('')
+        lines_in_header.append('')
+        lines_in_header.append('')
 
-        #lines_in_response.append(data_back)
-        headers = '\n'.join(lines_in_response)
+        headers = '\n'.join(lines_in_header)
         self.wfile.write(headers)
         self.wfile.write(data_back)
         global_proxy.place_in_cache(path_requested, headers, data_back)
