@@ -22,15 +22,23 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import urllib2
 
 
-global_proxy = Aproxymate()
-
 
 class AproxymateRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         all_headers = self.headers
-        path_requested = self.path
+        path_requested = self.path.lower()
         print "Request for {0}".format(path_requested)
+        
+        # check if exactly this request has been made before (send if true)
+        cached_message = global_proxy.check_in_cache(path_requested)
+        if cached_message:
+            self.wfile.write(cached_message['headers'])
+            self.wfile.write(cached_message['data'])
+            return
+
+        # tell remote server not to gzip or otherwise encode response 
+        all_headers['accept-encoding'] = 'identity'
         # run this GET request on the path requested, with same headers
         request_out = urllib2.Request(path_requested, headers = all_headers)
         try:
@@ -57,10 +65,13 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
 
         #symbolize end of headers
         lines_in_response.append('')
+        lines_in_response.append('')
 
-        lines_in_response.append(data_back)
-        full_message = '\n\r'.join(lines_in_response)
-        self.wfile.write(full_message)
+        #lines_in_response.append(data_back)
+        headers = '\n'.join(lines_in_response)
+        self.wfile.write(headers)
+        self.wfile.write(data_back)
+        global_proxy.place_in_cache(path_requested, headers, data_back)
 
 
 
@@ -68,6 +79,8 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
 class Aproxymate():
     def __init__(self):
         self.port = None
+        #for now a cache is just a key value store of paths to response messages
+        self.cache = {}
 
     def listen(self, port):
         self.port = port
@@ -78,8 +91,20 @@ class Aproxymate():
         except KeyboardInterrupt:
             print " KeyboardInterrupt received. Shutting down server."
 
+    def place_in_cache(self, path_requested, headers, message_data):
+        print "Placing path", path_requested, "in cache."
+        self.cache[path_requested] = {"headers": headers, "data": message_data}
+        return True
 
+    def check_in_cache(self, path_requested):
+        if path_requested in self.cache:
+            print "Found cache entry for", path_requested
+            return self.cache[path_requested]
+        else:
+            print "No cache entry for", path_requested
+            return False
 
+global_proxy = Aproxymate()
 
 
 def main():
@@ -87,7 +112,7 @@ def main():
     parser.add_argument("port", type=int ,help="Port number to bind proxy to")
     args = parser.parse_args()
 
-    proxy.listen(args.port)
+    global_proxy.listen(args.port)
 
 if __name__ == '__main__':
     main()
