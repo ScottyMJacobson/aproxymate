@@ -1,8 +1,8 @@
 ''' aproxymate: a simple proxy that handles GET requests for a particular URL,
  fetches that resource from the remote server, and returns it to the requester.
 
-Advanced features: 
-    - caching
+TODO Advanced features: 
+    - use redis for caching
     - distributed proxy (multiple helper threads)
         - separate I/O threads
         - distributed caching
@@ -19,10 +19,14 @@ import argparse
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 
-
 import urllib2
 
+
+global_proxy = Aproxymate()
+
+
 class AproxymateRequestHandler(BaseHTTPRequestHandler):
+
     def do_GET(self):
         all_headers = self.headers
         path_requested = self.path
@@ -62,15 +66,19 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
 
 
 class Aproxymate():
-    def __init__(self, portno):
-        self.port = portno
+    def __init__(self):
+        self.port = None
 
-    def listen(self):
+    def listen(self, port):
+        self.port = port
         try:
-            self.server = HTTPServer(("", self.port), AproxymateRequestHandler)
+            self.server = HTTPServer(("", port), AproxymateRequestHandler)
+            print "Proxy server listening on port", self.port
             self.server.serve_forever() 
         except KeyboardInterrupt:
             print " KeyboardInterrupt received. Shutting down server."
+
+
 
 
 
@@ -79,8 +87,7 @@ def main():
     parser.add_argument("port", type=int ,help="Port number to bind proxy to")
     args = parser.parse_args()
 
-    proxy = Aproxymate(args.port)
-    proxy.listen()
+    proxy.listen(args.port)
 
 if __name__ == '__main__':
     main()
