@@ -23,7 +23,7 @@ def main():
 
     while True:
         print mk_client.put_key("test_key", "the_test_value", 1000)
-        mk_client.get_key()
+        print mk_client.get_key("test_key")
         time.sleep(10)
 
 
