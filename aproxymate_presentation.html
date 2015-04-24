@@ -257,6 +257,71 @@ Load http://127.0.0.1:5000/aproxymatedemo/4.html
 > *"For instance, it makes no sense to use a [threaded] server if the service contains state in memory that can be modified by different requests"*
  from [Python.org SocketServer Docs](https://docs.python.org/2/library/socketserver.html)
 
+My hackaround:
+```python
+global_proxy = Aproxymate()
+```
+In the global scope... questionable at best
+
+Race conditions?
+
+So how do we solve it?
+
+---
+
+#Centralized, Thread-Safe Caches
+
+- Memcached
+- APC
+- Redis
+- Build my own?
+
+---
+
+#Build My Own!
+
+Using memcached/redis would really be a lot of configuring
+
+I get to explore the concurrency and networking challenges of
+building a cache in memory
+
+I get to set the terms of serializing
+
+I present...
+
+???
+
+(In honor of spring fling)
+
+---
+
+class: center, middle
+
+#MemKe$hed
+
+---
+
+#The MemKeshed Protocol
+
+Commands are issued in plaintext Over TCP in the form:
+
+`command key`
+
+---
+
+#Commands
+
+###Set in cache
+tiktok key time-to-cache data-length 
+
+###Retreive from cache
+rwhower key
+
+
+
+
+
+
 
     </textarea>
     <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
