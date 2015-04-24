@@ -18,13 +18,14 @@ TODO Advanced features:
 import argparse
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from SocketServer   import ThreadingMixIn
 
 import urllib2
 
-
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    pass
 
 class AproxymateRequestHandler(BaseHTTPRequestHandler):
-
     def do_GET(self):
         all_headers = self.headers
         path_requested = self.path.lower()
@@ -33,8 +34,8 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
         # check if exactly this request has been made before (send if true)
         cached_message = global_proxy.check_in_cache(path_requested)
         if cached_message:
-            self.wfile.write(cached_message['headers'])
-            self.wfile.write(cached_message['data'])
+            self.wfile.write(cached_message.headers)
+            self.wfile.write(cached_message.message_data)
             return
 
         # tell remote server not to gzip or otherwise encode response 
@@ -67,9 +68,13 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
         headers = '\n'.join(lines_in_header)
         self.wfile.write(headers)
         self.wfile.write(data_back)
-        global_proxy.place_in_cache(path_requested, headers, data_back)
+        global_proxy.place_in_cache(path_requested, CacheEntry(headers, data_back))
 
 
+class CacheEntry():
+    def __init__(self, headers, message_data):
+        self.headers = headers
+        self.message_data = message_data
 
 
 class Aproxymate():
@@ -81,15 +86,15 @@ class Aproxymate():
     def listen(self, port):
         self.port = port
         try:
-            self.server = HTTPServer(("", port), AproxymateRequestHandler)
-            print "Proxy server listening on port", self.port
+            self.server = ThreadedHTTPServer(("", port), AproxymateRequestHandler)
+            print "Threaded, caching proxy server listening on port", self.port
             self.server.serve_forever() 
         except KeyboardInterrupt:
             print " KeyboardInterrupt received. Shutting down server."
 
-    def place_in_cache(self, path_requested, headers, message_data):
+    def place_in_cache(self, path_requested, cache_entry):
         print "Placing path", path_requested, "in cache."
-        self.cache[path_requested] = {"headers": headers, "data": message_data}
+        self.cache[path_requested] = cache_entry
         return True
 
     def check_in_cache(self, path_requested):
@@ -98,7 +103,7 @@ class Aproxymate():
             return self.cache[path_requested]
         else:
             print "No cache entry for", path_requested
-            return False
+            return None
 
 global_proxy = Aproxymate()
 
