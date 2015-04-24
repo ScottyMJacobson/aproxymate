@@ -25,6 +25,7 @@ def recv_until_delineator(recv_function, delineator):
 class MemKeshedClient():
     def __init__(self, port):
         self.port = port
+        self.logger = logging.getLogger('MemKeshedClient')
 
     def put_key(self, key, value, time_to_cache):
         # send memkeshed message to server
@@ -43,22 +44,25 @@ class MemKeshedClient():
 
 
     def get_key(self, key):
-        request_text = "rwhower {0}".format(key)
+        request_text = "rwhower {0} ".format(key)
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(('127.0.0.1', self.port))
         s.send(request_text)
         response_status = recv_until_delineator(s.recv, " ")
-
+        self.logger.debug("received response code {0}".format(response_status))
+        if response_status == GET_KEY_SUCCESS:
+            data_length = int(recv_until_delineator(s.recv, " "))
+            self.logger.debug("data_length is {0}".format(data_length))
+            data_value = s.recv(data_length)
+            self.logger.debug("data_value is {0}".format(data_value))
+        else:
+            data_value = None
         s.close()
-
-        # send memkeshed message to server
-        # parse response for value
-        # return value
-        pass
+        return data_value
 
 
-SUPPORTED_COMMANDS = ['tiktokz', 'rwhower']
+SUPPORTED_COMMANDS = [PUT_KEY_COMMAND, GET_KEY_COMMAND]
 
 PUT_KEY_COMMAND = "tiktokz"
 PUT_KEY_SUCCESS = "$$$$$$$"
@@ -85,44 +89,46 @@ class MemKeshedRequestHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         self.logger.debug('handle')
-
-        # Echo the back to the client
-        command = self.recv_until_delineator(self.request.recv, ' ')
-            
+        command = recv_until_delineator(self.request.recv, ' ')            
         if not command in SUPPORTED_COMMANDS:
             return self.respond_with_error("Command Unrecognized")
-
         return self.respond_by_command(command)
 
     def respond_by_command(self, command_txt):
         self.logger.debug('Responding to command {0}'.format(command_txt))
 
         if command_txt == PUT_KEY_COMMAND:
-            key = self.recv_until_delineator(self.request.recv, ' ')
+            key = recv_until_delineator(self.request.recv, ' ')
             self.logger.debug('key is {0}'.format(key))
-            time_to_cache = int(self.recv_until_delineator(self.request.recv, ' '))
+            time_to_cache = int(recv_until_delineator(self.request.recv, ' '))
             self.logger.debug('time_to_cache is {0}'.format(time_to_cache))
-            data_length = int(self.recv_until_delineator(self.request.recv, '\n'))
+            data_length = int(recv_until_delineator(self.request.recv, '\n'))
             self.logger.debug('data_length is {0}'.format(data_length))
             data_value = self.request.recv(data_length)
             self.logger.debug('data payload is {0}'.format(data_value))
             if self.server.put_key(key, data_value, time_to_cache):
                 self.request.send(PUT_KEY_SUCCESS)
+                return
             else:
                 self.request.send(PUT_KEY_ERROR)
+                return
 
         elif command_txt == GET_KEY_COMMAND:
-            key = self.recv_until_delineator(self.request.recv, ' ')
+            self.logger.debug('getting key')
+            key = recv_until_delineator(self.request.recv, ' ')
             self.logger.debug('key is {0}'.format(key))
             value_from_database = self.server.get_key(key)
             self.send_lookup_result(value_from_database)
+        return
 
-    def send_lookup_result(self, value_from_database):
-        if value_from_database:
-            payload = " ".join([GET_KEY_SUCCESS, len(value_from_database, value_from_database)])
+    def send_lookup_result(self, entry_from_database):
+        if entry_from_database:
+            payload = " ".join([GET_KEY_SUCCESS, str(len(entry_from_database.value)), entry_from_database.value])
             self.request.send(payload)
+            return
         else:
             self.request.send(GET_KEY_ERROR+" \n")
+            return
 
 
     def respond_with_error(self, error_msg):
