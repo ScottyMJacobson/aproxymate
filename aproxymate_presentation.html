@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Aproxymate</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <style type="text/css">
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+
+# Aproxymate
+##### It's a proxy, mate
+##Scott Jacobson, COMP112 Networking Spring 2015
+---
+
+# Potential Goals
+
+1. Basic GET Proxy
+  - Multithreaded Proxy?
+2. Basic Caching
+  - Distributed / Asynchronous caching?
+  - Using memcache / Redis?
+3. Communication over autonomous protocol?
+
+---
+class: center, middle
+
+#Basic Get Proxy
+
+---
+
+# Basic GET Proxy
+
+####Why Python?
+ - Abstraction!
+ - Less boilerplate!
+
+```python
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+```
+and once we implement a subclass of BaseHTTPRequestHandler...
+```python
+class AproxymateRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+      # process request
+      # send response
+
+server = HTTPServer(("", port), AproxymateRequestHandler)
+```
+
+
+
+^ `server` is an HTTPServer that serves GET requests!
+
+---
+
+# What does a do_GET look like for a proxy?
+
+```python
+def do_GET:
+  request_out = urllib2.Request(self.path, headers=self.headers)
+  response_back = urllib2.urlopen(request_out)
+  data_back = response_back.read()
+  self.wfile.write(data_back)
+```
+
+???
+
+- Our proxy sends an HTTP request out to the destination server
+- This data comes back, we capture it via the read() function
+- self.wfile is populated with a file descriptor for the socket communicating
+with the client
+- It's actually a bit more complicated than this - you have to ensure that
+headers translate across requests, and that the data isn't chunked or gzipped, 
+but this is the gist of it
+
+---
+
+# Demo 1: Basic HTTP GET
+
+In terminal:
+```bash
+python aproxymate/aproxymate_demo_1_get.py 5050
+```
+
+In chrome:
+
+set proxy to localhost:5050
+
+go to http://127.0.0.1:5000/aproxymatedemo/1.html
+
+???
+
+Single resource is requested from a small webserver I'm running on localhost.
+
+---
+
+# But wait...
+
+are there problems with this?
+
+# Demo 2: problems
+
+*with proxy server still running...*
+
+In terminal:
+```bash
+nc 127.0.0.1 5050
+```
+
+In chrome:
+
+Load http://127.0.0.1:5000/aproxymatedemo/1.html again
+
+#Why...
+
+???
+
+netcat opens a TCP connection to port 5050 and hangs
+
+---
+
+#Why?
+
+###Blocking I/O
+The request is handled on the main interpreter thread.
+
+---
+
+# How to make it non-blocking?
+
+###Python to the rescue again!
+```python
+from SocketServer   import ThreadingMixIn
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    pass
+
+server = ThreadedHTTPServer(("", port), AproxymateRequestHandler)
+```
+
+^ Now server is threaded!
+
+---
+
+#Demo 3:
+
+In terminal:
+```bash
+python aproxymate/aproxymate_demo_3_threads.py 5050
+```
+```
+nc 127.0.0.1 5050
+```
+In Chrome:
+
+Load http://127.0.0.1:5000/aproxymatedemo/3.html
+
+
+<br><br>
+
+Is it really that easy?
+*(we'll get back to this)*
+
+???
+
+It doesn't block anymore! Yay!
+
+---
+
+class: center, middle
+
+#Basic Caching
+
+---
+
+#Basic Caching
+
+###Key/Value store:
+
+*Key:* Name of resource
+
+*Value:* Contents of resource (response from destination server)
+
+---
+
+#Basic Caching
+
+How to implement it?
+
+*The most basic approach? a python dictionary*
+
+```python
+class CacheEntry():
+    def __init__(self, headers, message_data):
+        self.headers = headers
+        self.message_data = message_data
+
+
+class Aproxymate():
+  def __init__(self):
+      self.cache = {}
+
+  def place_in_cache(self, path_requested, cache_entry):
+      self.cache[path_requested] = cache_entry
+
+  def check_in_cache(self, path_requested):
+      if path_requested in self.cache:
+          return self.cache[path_requested]
+      else:
+          return None
+```
+
+???
+
+Create CacheEntry, which is effectively a struct for each entry
+In the actual proxy instance, we hold a member dictionary called cache
+
+---
+
+#Basic Caching
+
+```python
+def do_GET(self):
+    ......
+    cached_message = global_proxy.check_in_cache(path_requested)
+    if cached_message:
+        self.wfile.write(cached_message.headers)
+        self.wfile.write(cached_message.data)
+```
+
+#Demo 4:
+```bash
+python aproxymate/aproxymate_demo_4_caching.py 5050
+```
+
+Load http://127.0.0.1:5000/aproxymatedemo/4.html
+
+---
+
+#Caching and Multithreading (but wait...)
+
+
+> *"For instance, it makes no sense to use a [threaded] server if the service contains state in memory that can be modified by different requests"*
+ from [Python.org SocketServer Docs](https://docs.python.org/2/library/socketserver.html)
+
+
+    </textarea>
+    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
+    </script>
+    <script>
+      var slideshow = remark.create();
+    </script>
+  </body>
+</html>
