@@ -1,4 +1,4 @@
-''' memkeshed: a dumbed-down version of memcache implemented in python
+''' memkeshed: a server with some memcache features implemented in python
 '''
 import threading
 import select
@@ -22,7 +22,19 @@ def recv_until_delineator(recv_function, delineator):
         retval += last_char
     return retval[:-1]
 
-class MemKeshedClient():
+PUT_KEY_COMMAND = "tiktokz"
+PUT_KEY_SUCCESS = "$$$$$$$\n"
+PUT_KEY_ERROR = "dbstopd"
+
+GET_KEY_COMMAND = "rwhower"
+GET_KEY_SUCCESS = "sprstrz"
+GET_KEY_ERROR = "dbblown"
+GET_KEY_DELINEATOR = " \n"
+
+SUPPORTED_COMMANDS = [PUT_KEY_COMMAND, GET_KEY_COMMAND]
+
+
+class MemKeshedClient(object):
     def __init__(self, port):
         self.port = port
         self.logger = logging.getLogger('MemKeshedClient')
@@ -31,7 +43,7 @@ class MemKeshedClient():
         # send memkeshed message to server
         # format: tiktokz key time_to_cache data_length 
         data_length = len(value)
-        request_text = "tiktokz {0} {1} {2}\n{3}\n".format(key, time_to_cache, data_length, value)
+        request_text = "{0} {1} {2} {3}\n{4}\n".format(PUT_KEY_COMMAND, key, time_to_cache, data_length, value)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(('127.0.0.1', self.port))
         s.send(request_text)
@@ -44,7 +56,7 @@ class MemKeshedClient():
 
 
     def get_key(self, key):
-        request_text = "rwhower {0} ".format(key)
+        request_text = "{0} {1}{2}".format(GET_KEY_COMMAND, key, GET_KEY_DELINEATOR)
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(('127.0.0.1', self.port))
@@ -62,15 +74,6 @@ class MemKeshedClient():
         return data_value
 
 
-SUPPORTED_COMMANDS = [PUT_KEY_COMMAND, GET_KEY_COMMAND]
-
-PUT_KEY_COMMAND = "tiktokz"
-PUT_KEY_SUCCESS = "$$$$$$$"
-PUT_KEY_ERROR = "dbstopd"
-
-GET_KEY_COMMAND = "rwhower"
-GET_KEY_SUCCESS = "sprstrz"
-GET_KEY_ERROR = "dbblown"
 
 
 '''A subclass of SocketServer RequestHandlers, this contains the 
@@ -123,10 +126,12 @@ class MemKeshedRequestHandler(SocketServer.BaseRequestHandler):
 
     def send_lookup_result(self, entry_from_database):
         if entry_from_database:
+            self.logger.debug('entry in database is {0}'.format(entry_from_database.value))
             payload = " ".join([GET_KEY_SUCCESS, str(len(entry_from_database.value)), entry_from_database.value])
             self.request.send(payload)
             return
         else:
+            self.logger.debug('no entry in database')
             self.request.send(GET_KEY_ERROR+" \n")
             return
 
@@ -154,6 +159,8 @@ class MemKeshedDatabase():
     def put_key(self, key, value, time_to_cache):
         with self.global_store_lock:
             self.store[key] = MemKeshedDataInstance(value)
+        timer = threading.Timer(time_to_cache, self.expire_key, args=[key])
+        timer.start()
         return True
 
     def get_key(self, key):
@@ -162,6 +169,10 @@ class MemKeshedDatabase():
             if key in self.store:
                 retval = self.store[key]
         return retval
+
+    def expire_key(self, key):
+        with self.global_store_lock:
+            self.store.pop(key, None)
 
 
 '''A subclass of SocketServer.TCPServer, MemKeshedServer loads a database and hands
