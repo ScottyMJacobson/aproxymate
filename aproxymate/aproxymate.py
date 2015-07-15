@@ -26,7 +26,7 @@ import json
 
 import urllib2
 
-CACHE_TIME = 5
+DEFAULT_CACHE_TIME = 120
 
 class AproxymateRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -71,7 +71,7 @@ class AproxymateRequestHandler(BaseHTTPRequestHandler):
         headers = '\n'.join(lines_in_header)
         self.wfile.write(headers)
         self.wfile.write(data_back)
-        self.server.place_in_cache(path_requested, CacheEntry(headers, data_back), CACHE_TIME)
+        self.server.place_in_cache(path_requested, CacheEntry(headers, data_back), self.server.cache_time)
 
 
 class CacheEntry():
@@ -98,16 +98,17 @@ class AproxymateMemKeshedClient(memkeshed.MemKeshedClient):
             return None 
 
 class AproxymateServer(ThreadedHTTPServer):
-    def __init__(self, proxy_port, memkeshed_port):
+    def __init__(self, proxy_port, memkeshed_port, cache_time=DEFAULT_CACHE_TIME):
         self.proxy_port = proxy_port
         self.memkeshed_port = memkeshed_port
         self.memkeshed_client = AproxymateMemKeshedClient(memkeshed_port)
+        self.cache_time = cache_time
         ThreadedHTTPServer.__init__(self, ("127.0.0.1", proxy_port), AproxymateRequestHandler)
         return
 
     def listen(self):
         try:
-            print "Threaded, caching (through MemKeshed) proxy server listening on port", self.proxy_port
+            print "Threaded, caching (through MemKeshed) aproxymate server listening on port", self.proxy_port
             self.serve_forever() 
         except KeyboardInterrupt:
             print " KeyboardInterrupt received. Shutting down server."

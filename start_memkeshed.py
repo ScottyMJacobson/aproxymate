@@ -19,8 +19,7 @@ def main():
     mk_daemon.setDaemon(True)
     mk_daemon.start()
 
-    #mk_client = memkeshed.MemKeshedClient(args.memkeshed_port)
-
+    #Hack to allow ctrl-C to close the daemon
     while True:
         time.sleep(10)
 

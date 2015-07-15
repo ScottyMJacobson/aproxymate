@@ -175,15 +175,18 @@ class MemKeshedDatabase():
             self.store.pop(key, None)
 
 
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    pass
+
 '''A subclass of SocketServer.TCPServer, MemKeshedServer loads a database and hands
 its requests to the handler MemKeshedRequestHandler unless otherwise specified'''
 # inspired by http://pymotw.com/2/SocketServer/
-class MemKeshedServer(SocketServer.TCPServer):
+class MemKeshedServer(ThreadedTCPServer):
     def __init__(self, server_address, handler_class=MemKeshedRequestHandler):
         self.database = MemKeshedDatabase()
         self.logger = logging.getLogger('MemKeshedServer')
         self.logger.debug('__init__')
-        SocketServer.TCPServer.__init__(self, server_address, handler_class)
+        ThreadedTCPServer.__init__(self, server_address, handler_class)
         return
 
     def put_key(self, *args):
@@ -194,7 +197,7 @@ class MemKeshedServer(SocketServer.TCPServer):
 
     def server_activate(self):
         self.logger.debug('server_activate')
-        SocketServer.TCPServer.server_activate(self)
+        ThreadedTCPServer.server_activate(self)
         return
 
     def serve_forever(self):
@@ -206,27 +209,27 @@ class MemKeshedServer(SocketServer.TCPServer):
 
     def handle_request(self):
         self.logger.debug('handle_request')
-        return SocketServer.TCPServer.handle_request(self)
+        return ThreadedTCPServer.handle_request(self)
 
     def verify_request(self, request, client_address):
         self.logger.debug('verify_request(%s, %s)', request, client_address)
-        return SocketServer.TCPServer.verify_request(self, request, client_address)
+        return ThreadedTCPServer.verify_request(self, request, client_address)
 
     def process_request(self, request, client_address):
         self.logger.debug('process_request(%s, %s)', request, client_address)
-        return SocketServer.TCPServer.process_request(self, request, client_address)
+        return ThreadedTCPServer.process_request(self, request, client_address)
 
     def server_close(self):
         self.logger.debug('server_close')
-        return SocketServer.TCPServer.server_close(self)
+        return ThreadedTCPServer.server_close(self)
 
     def finish_request(self, request, client_address):
         self.logger.debug('finish_request(%s, %s)', request, client_address)
-        return SocketServer.TCPServer.finish_request(self, request, client_address)
+        return ThreadedTCPServer.finish_request(self, request, client_address)
 
     def close_request(self, request_address):
         self.logger.debug('close_request(%s)', request_address)
-        return SocketServer.TCPServer.close_request(self, request_address)
+        return ThreadedTCPServer.close_request(self, request_address)
 
 
 
