@@ -1,14 +1,16 @@
 # aproxymate
 **It's a proxy, mate**
 
-#(and  ![MemKeshed!](MemKeshed_Logo.png)
+#(and  ![MemKeshed!](MemKeshed_Logo.png) )
 
 **v. 0.2.0**
 
 Aproxymate is an HTTP proxy written in python that handles 
 HTTP GET requests and does basic temporary caching through its companion, Memkeshed.
 
-For the most complete explanation of aproxymate and MemKeshed's abilities, protocols, and implementations (complete with code walkthroughs and instructions for early-stage demos), open the [aproxymate presentation](aproxymate_presentation.html) from this directory in your favorite JavaScript-enabled web browser.
+For the most complete explanation of aproxymate and MemKeshed's abilities, protocols, and implementations (complete with code walkthroughs and instructions for early-stage demos), open the [aproxymate presentation](https://scottymjacobson.github.io/aproxymate/aproxymate_presentation.html) from this directory in your favorite JavaScript-enabled web browser.
+
+
 
 Or, if you're slides-averse, I've converted the presentation into pure PDF-via-Markdown form.
 
@@ -46,14 +48,14 @@ and instead responds using the cached response. If there is no hit in the cache,
 
 
 ## Limitations<a name="limitations"></a>:
-As of version 0.1.0, the following limitations are explicitly in place 
+As of version 0.2.0, the following limitations are explicitly in place 
 (others may be implicit):
 
 - The destination server is notified not to use gzip or any other 
 compression encoding schemes (the binary stream was getting garbled) and instead
 use`identity`encoding 
 - The proxy only accepts HTTP GET requests
-- Upon shutdown, the proxy's cache is emptied as it is stored in memory
+- Upon shutdown, memkeshed's cache is emptied as it is stored in memory
 and does not serialize
 - Unable to intelligently handle 301 and other redirect / more complex response codes
 - Because cache entries are serialized and then entered into the cache as strings, binary data such as jpgs don't serialize correctly within aproxymate and are thus unable to be cached (a possible fix would be to Base64 encode these and de-encode on the deserialization side)
